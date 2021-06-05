@@ -53,7 +53,16 @@ def score_line(edges, point_1, point_2):
     return np.tensordot(
         edges,
         cv.line(np.zeros(edges.shape), point_1, point_2, (255, ),
-                score_thickness, cv.LINE_AA))
+                score_thickness, cv.LINE_AA)) / size
+
+
+def score_square(top_left, top_right, bottom_right, bottom_left):
+    return (min(
+        top_right[0] - top_left[0], bottom_right[1] - top_right[1],
+        bottom_right[0] - bottom_left[0], bottom_left[1] - top_left[1]) -
+        abs(top_left[1] - top_right[1]) - abs(top_right[0] - bottom_right[0]) -
+        abs(bottom_right[1] - bottom_left[1]) -
+        abs(bottom_left[0] - top_left[0]) / size)
 
 
 def crop(image):
@@ -124,13 +133,14 @@ def crop(image):
         reverse=True)
 
     quadrilaterals = sorted(
-        [(top_line[0] + right_line[0] + bottom_line[0] + left_line[0],
-          top_line[1], right_line[1], bottom_line[1], left_line[1])
-         for top_line in top_lines
-         for right_line in right_lines if right_line[1] == top_line[2]
-         for bottom_line in bottom_lines if bottom_line[1] == right_line[2]
-         for left_line in left_lines
-         if left_line[1] == bottom_line[2] and left_line[2] == top_line[1]],
+        [(score_square(top_line[1], right_line[1], bottom_line[1], left_line[1]) *
+        (top_line[0] + right_line[0] + bottom_line[0] + left_line[0]),
+        top_line[1], right_line[1], bottom_line[1], left_line[1])
+        for top_line in top_lines
+        for right_line in right_lines if right_line[1] == top_line[2]
+        for bottom_line in bottom_lines if bottom_line[1] == right_line[2]
+        for left_line in left_lines
+        if left_line[1] == bottom_line[2] and left_line[2] == top_line[1]],
         reverse=True)
 
     if len(quadrilaterals) < 1:
