@@ -168,5 +168,5 @@ async def create_upload_file(file: UploadFile = File(...)):
     image = await file.read()
     cropped = await run_in_threadpool(crop, image)
     if cropped is None:
-        return {"error": "Unable to crop"}
+        cropped = image
     return StreamingResponse(cropped, media_type="image/jpeg")
