@@ -195,7 +195,6 @@ if __name__ == '__main__':
     parser = argparse.ArgumentParser()
     parser.add_argument('-dump_embeddings', action='store_true', help='Dump embeddings')
     args = parser.parse_args()
-    dump_embeddings = args.dump_embeddings
 
     base_cnn = tf.keras.applications.EfficientNetB0(include_top=False,
                                                     weights="imagenet",
