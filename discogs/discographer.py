@@ -1,5 +1,9 @@
+import os
+os.environ['CUDA_VISIBLE_DEVICES'] = ''
+
 import faiss
 import pickle
+import uvicorn
 import cv2 as cv
 import numpy as np
 from tensorflow import keras
@@ -54,3 +58,7 @@ async def create_upload_file(file: UploadFile = File(...)):
         "artist": artist,
         "title": title
     }
+
+
+if __name__ == "__main__":
+    uvicorn.run(app, host="0.0.0.0", port=8001)
