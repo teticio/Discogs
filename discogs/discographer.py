@@ -47,11 +47,8 @@ async def create_upload_file(file: UploadFile = File(...)):
     result = await run_in_threadpool(predict, image)
     id = result[1]
     proximity = result[0]
-    if id in release_info:  ################
-        artist = release_info[id][0]
-        title = release_info[id][1]
-    else:
-        artist = title = None
+    artist = release_info[str(id)][0]
+    title = release_info[str(id)][1]
     return {
         "id": id,
         "proximity": float(proximity),
