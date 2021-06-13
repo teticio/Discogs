@@ -193,7 +193,9 @@ def dump_embeddings():
 
 if __name__ == '__main__':
     parser = argparse.ArgumentParser()
-    parser.add_argument('-dump_embeddings', action='store_true', help='Dump embeddings')
+    parser.add_argument('-dump_embeddings',
+                        action='store_true',
+                        help='Dump embeddings')
     args = parser.parse_args()
 
     base_cnn = tf.keras.applications.EfficientNetB0(include_top=False,
@@ -218,8 +220,10 @@ if __name__ == '__main__':
         layer.trainable = trainable
 
     anchor_input = layers.Input(name="anchor", shape=(IMG_SIZE, IMG_SIZE, 3))
-    positive_input = layers.Input(name="positive", shape=(IMG_SIZE, IMG_SIZE, 3))
-    negative_input = layers.Input(name="negative", shape=(IMG_SIZE, IMG_SIZE, 3))
+    positive_input = layers.Input(name="positive",
+                                  shape=(IMG_SIZE, IMG_SIZE, 3))
+    negative_input = layers.Input(name="negative",
+                                  shape=(IMG_SIZE, IMG_SIZE, 3))
 
     distances = DistanceLayer()(
         embedding(anchor_input),
@@ -227,8 +231,9 @@ if __name__ == '__main__':
         embedding(negative_input),
     )
 
-    siamese_network = Model(inputs=[anchor_input, positive_input, negative_input],
-                            outputs=distances)
+    siamese_network = Model(
+        inputs=[anchor_input, positive_input, negative_input],
+        outputs=distances)
 
     siamese_model = SiameseModel(siamese_network, margin=0.1)  ##########
     siamese_model.compile(optimizer=optimizers.Adam(0.0001))
@@ -245,13 +250,14 @@ if __name__ == '__main__':
     batch_size = 1024
     siamese_model.fit(
         generator(batch_size),
-        epochs=50,
+        epochs=500,
         steps_per_epoch=train_val_split * len(releases) / batch_size / 10,
         validation_data=generator(batch_size, validation=True),
-        validation_steps=(1 - train_val_split) * len(releases) / batch_size / 10,
+        validation_steps=(1 - train_val_split) * len(releases) / batch_size /
+        10,
         callbacks=[
             callbacks.ModelCheckpoint('../discographer.h5',
-                                    monitor='val_loss',
-                                    mode='min',
-                                    save_best_only=True),
+                                      monitor='val_loss',
+                                      mode='min',
+                                      save_best_only=True),
         ])
