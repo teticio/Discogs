@@ -175,11 +175,10 @@ def generator(batch_size, validation=False):
         yield [anchors, positives, negatives]
 
 
-def dump_embeddings():
+def dump_embeddings(batch_size):
     embedding.save('../embedding_model')
     print(f'Dumping embeddings')
     embedding_vectors = {}
-    batch_size = 1024
     for i in tqdm(range(0, len(releases), batch_size)):
         batch = []
         for j in range(0, min(batch_size, len(releases) - i)):
@@ -196,6 +195,9 @@ if __name__ == '__main__':
     parser.add_argument('-dump_embeddings',
                         action='store_true',
                         help='Dump embeddings')
+    parser.add_argument('-load_weights',
+                        action='store_true',
+                        help='Load weights')
     args = parser.parse_args()
 
     base_cnn = tf.keras.applications.EfficientNetB0(include_top=False,
@@ -207,11 +209,15 @@ if __name__ == '__main__':
     layer = layers.LeakyReLU(0.2)(layer)
     layer = layers.BatchNormalization()(layer)
     layer = layers.Dropout(rate=0.5)(layer)
-    layer = layers.Dense(512)(layer)
+    layer = layers.Dense(1024)(layer)
+    layer = layers.LeakyReLU(0.2)(layer)
+    layer = layers.BatchNormalization()(layer)
+    layer = layers.Dropout(rate=0.5)(layer)
+    layer = layers.Dense(1024)(layer)
     output = layer
 
     embedding = Model(base_cnn.input, output, name="Embedding")
-    IMG_SIZE = 224  ####### embedding.get_input_shape_at(0)[1]
+    IMG_SIZE = 224
 
     trainable = False
     for layer in base_cnn.layers:
@@ -235,29 +241,30 @@ if __name__ == '__main__':
         inputs=[anchor_input, positive_input, negative_input],
         outputs=distances)
 
-    siamese_model = SiameseModel(siamese_network, margin=0.1)  ##########
+    siamese_model = SiameseModel(siamese_network, margin=0.2)  ##########
     siamese_model.compile(optimizer=optimizers.Adam(0.0001))
 
     # dummy call before we can load weights
     siamese_model([np.zeros((IMG_SIZE, IMG_SIZE, 3))] * 3)
-    if os.path.isfile('../discographer.h5'):
+    if args.load_weights and os.path.isfile('../discographer.h5'):
         print('Loading weights')
         siamese_model.load_weights('../discographer.h5')
 
-    if args.dump_embeddings:
-        dump_embeddings()
-
     batch_size = 1024
-    siamese_model.fit(
-        generator(batch_size),
-        epochs=500,
-        steps_per_epoch=train_val_split * len(releases) / batch_size / 10,
-        validation_data=generator(batch_size, validation=True),
-        validation_steps=(1 - train_val_split) * len(releases) / batch_size /
-        10,
-        callbacks=[
-            callbacks.ModelCheckpoint('../discographer.h5',
-                                      monitor='val_loss',
-                                      mode='min',
-                                      save_best_only=True),
-        ])
+    if args.dump_embeddings:
+        dump_embeddings(batch_size)
+
+    else:
+        siamese_model.fit(
+            generator(batch_size),
+            epochs=500,
+            steps_per_epoch=train_val_split * len(releases) / batch_size / 10,
+            validation_data=generator(batch_size, validation=True),
+            validation_steps=(1 - train_val_split) * len(releases) / batch_size /
+            10,
+            callbacks=[
+                callbacks.ModelCheckpoint('../discographer.h5',
+                                        monitor='val_loss',
+                                        mode='min',
+                                        save_best_only=True),
+            ])
