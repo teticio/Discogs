@@ -1,4 +1,7 @@
+BASELINE = False
+
 import os
+
 os.environ['CUDA_VISIBLE_DEVICES'] = ''
 
 import faiss
@@ -14,13 +17,21 @@ from starlette.concurrency import run_in_threadpool
 app = FastAPI()
 
 release_info = pickle.load(open('../release_info.p', 'rb'))
-embedding = keras.models.load_model('../embedding_model')
-embedding_vectors = pickle.load(open('../embedding_vectors.p', 'rb'))
+if not BASELINE:
+    embedding = keras.models.load_model('../embedding_model')
+    embedding_vectors = pickle.load(open('../embedding_vectors.p', 'rb'))
+else:
+    embedding = keras.models.load_model('../image_model')
+    embedding_vectors = pickle.load(open('../image_vectors.p', 'rb'))
 
 index_to_release = dict(enumerate(embedding_vectors))
-vectors = np.array([embedding_vectors[_] for _ in embedding_vectors], dtype=np.float32)
-index = faiss.IndexFlatIP(vectors.shape[1])
-faiss.normalize_L2(vectors)
+vectors = np.array([embedding_vectors[_] for _ in embedding_vectors],
+                   dtype=np.float32)
+if not BASELINE:
+    index = faiss.IndexFlatIP(vectors.shape[1])
+    faiss.normalize_L2(vectors)
+else:
+    index = faiss.IndexFlatL2(vectors.shape[1])
 index.add(vectors)
 
 IMG_SIZE = 224  #######
@@ -34,26 +45,28 @@ def preprocess_image(image):
     return img
 
 
-def predict(image):
+def predict(image, topk=1):
     x = embedding.predict(np.array([preprocess_image(image)]))
-    x = x / np.linalg.norm(x[0])
-    y = index.search(x, 1)
-    return y[0][0][0], index_to_release[y[1][0][0]]
+    if not BASELINE:
+        x = x / np.linalg.norm(x[0])
+    y = index.search(x, topk)
+    return [float(_) for _ in y[0][0][:topk]
+            ], [index_to_release[_] for _ in y[1][0][:topk]]
 
 
 @app.post("/uploadfile/")
-async def create_upload_file(file: UploadFile = File(...)):
+async def create_upload_file(topk: int, file: UploadFile = File(...)):
     image = await file.read()
-    result = await run_in_threadpool(predict, image)
-    id = result[1]
-    proximity = result[0]
-    artist = release_info[str(id)][0]
-    title = release_info[str(id)][1]
+    result = await run_in_threadpool(predict, image, topk)
+    ids = result[1]
+    proximities = result[0]
+    artists = [release_info[str(_)][0] for _ in ids]
+    titles = [release_info[str(_)][1] for _ in ids]
     return {
-        "id": id,
-        "proximity": float(proximity),
-        "artist": artist,
-        "title": title
+        "ids": ids,
+        "proximities": proximities,
+        "artists": artists,
+        "titles": titles
     }
 
 
