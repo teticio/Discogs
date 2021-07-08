@@ -4,15 +4,8 @@ verify_ssl = true
 name = "pypi"
 
 [packages]
-fastapi = "*"
-uvloop = "*"
-uvicorn = {extras = ["standard"], version = "*"}
-python-multipart = "*"
-opencv-python = "*"
-tensorflow = "*"
 
 [dev-packages]
-yapf = "*"
 
 [requires]
 python_version = "3.7"
