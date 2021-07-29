@@ -15,3 +15,4 @@ embedding_model
 embedding_model.tflite
 image_model
 discogs/credentials
+discogs/video.mp4
