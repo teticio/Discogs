@@ -14,3 +14,4 @@ __pycache__
 embedding_model
 embedding_model.tflite
 image_model
+discogs/credentials

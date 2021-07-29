@@ -20,7 +20,8 @@ logging.basicConfig(
     level=logging.INFO)
 logger = logging.getLogger(__name__)
 
-updater = Updater(token='1905062828:AAEVNf9oEDaWjSqYrLbZOVBPhE-ttQqGK4w',
+token = open('credentials', 'rt').read()
+updater = Updater(token=token,
                   use_context=True)
 dispatcher = updater.dispatcher
 
@@ -43,12 +44,6 @@ else:
 index.add(vectors)
 
 IMG_SIZE = 224  #######
-
-
-def preprocess_image(image):
-    img = cv.resize(image, (IMG_SIZE, IMG_SIZE), interpolation=cv.INTER_AREA)
-    img = cv.cvtColor(img, cv.COLOR_BGR2RGB)
-    return img
 
 
 def predict(image, topk=1):
@@ -78,18 +73,18 @@ def handle_video(update, context):
             if not flag:
                 break
             if frame.shape[0] > frame.shape[1]:
-                img = frame[(frame.shape[0] - frame.shape[1]) //
-                            2:(frame.shape[0] + frame.shape[1]) // 2, :, :]
+                frame = frame[(frame.shape[0] - frame.shape[1]) //
+                              2:(frame.shape[0] + frame.shape[1]) // 2, :, :]
             else:
-                img = frame[:, (frame.shape[1] - frame.shape[0]) //
-                            2:(frame.shape[1] + frame.shape[0]) // 2, :]
+                frame = frame[:, (frame.shape[1] - frame.shape[0]) //
+                              2:(frame.shape[1] + frame.shape[0]) // 2, :]
             frame = cv.resize(frame, (IMG_SIZE, IMG_SIZE),
                               interpolation=cv.INTER_AREA)
             frame = cv.cvtColor(frame, cv.COLOR_BGR2RGB)
             x = embedding.predict(np.array([frame]))
             if not BASELINE:
                 x = x / np.linalg.norm(x[0])
-            y = index.search(x, 10)  # only consider top 10
+            y = index.search(x, 1000)  # only consider top 1000
             for _ in range(len(y[0][0])):
                 proximities[y[1][0][_]] += y[0][0][_]
         id = index_to_release[np.argmax(proximities)]
@@ -99,10 +94,9 @@ def handle_video(update, context):
         logger.info(f'{artist} - {title}')
         context.bot.send_message(chat_id=update.effective_chat.id, text=url)
     except Exception as e:
-        os.remove(filename)
+        # os.remove(filename)
         raise (e)
-    os.remove(filename)
-
+    # os.remove(filename)
 
 start_handler = CommandHandler('start', start)
 dispatcher.add_handler(start_handler)
@@ -114,4 +108,3 @@ if __name__ == "__main__":
     updater.start_polling()
     updater.idle()
     updater.stop()
-    
