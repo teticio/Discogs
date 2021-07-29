@@ -1,0 +1,16 @@
+.ipynb_checkpoints/
+.vscode/
+.cache-teticio
+credentials
+thumbs/
+thumbs2/
+popsike/
+release_info.p
+image_vectors.p
+embedding_vectors.p
+discographer.h5
+Pipfile.lock
+__pycache__
+embedding_model
+embedding_model.tflite
+image_model
