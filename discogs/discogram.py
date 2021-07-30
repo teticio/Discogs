@@ -21,8 +21,7 @@ logging.basicConfig(
 logger = logging.getLogger(__name__)
 
 token = open('credentials', 'rt').read()
-updater = Updater(token=token,
-                  use_context=True)
+updater = Updater(token=token, use_context=True)
 dispatcher = updater.dispatcher
 
 release_info = pickle.load(open('../release_info.p', 'rb'))
@@ -46,18 +45,29 @@ index.add(vectors)
 IMG_SIZE = 224  #######
 
 
+def preprocess_image(image):
+    if image.shape[0] > image.shape[1]:
+        image = image[(image.shape[0] - image.shape[1]) //
+                      2:(image.shape[0] + image.shape[1]) // 2, :, :]
+    else:
+        image = image[:, (image.shape[1] - image.shape[0]) //
+                      2:(image.shape[1] + image.shape[0]) // 2, :]
+    image = cv.resize(image, (IMG_SIZE, IMG_SIZE), interpolation=cv.INTER_AREA)
+    image = cv.cvtColor(image, cv.COLOR_BGR2RGB)
+    return image
+
+
 def predict(image, topk=1):
     x = embedding.predict(np.array([preprocess_image(image)]))
     if not BASELINE:
         x = x / np.linalg.norm(x[0])
     y = index.search(x, topk)
-    return [float(_) for _ in y[0][0][:topk]
-            ], [index_to_release[_] for _ in y[1][0][:topk]]
+    return y
 
 
 def start(update, context):
     context.bot.send_message(chat_id=update.effective_chat.id,
-                             text="Send me a video")
+                             text="Send me a video or photo")
 
 
 def handle_video(update, context):
@@ -72,19 +82,7 @@ def handle_video(update, context):
                 flag, frame = video.read()
             if not flag:
                 break
-            if frame.shape[0] > frame.shape[1]:
-                frame = frame[(frame.shape[0] - frame.shape[1]) //
-                              2:(frame.shape[0] + frame.shape[1]) // 2, :, :]
-            else:
-                frame = frame[:, (frame.shape[1] - frame.shape[0]) //
-                              2:(frame.shape[1] + frame.shape[0]) // 2, :]
-            frame = cv.resize(frame, (IMG_SIZE, IMG_SIZE),
-                              interpolation=cv.INTER_AREA)
-            frame = cv.cvtColor(frame, cv.COLOR_BGR2RGB)
-            x = embedding.predict(np.array([frame]))
-            if not BASELINE:
-                x = x / np.linalg.norm(x[0])
-            y = index.search(x, 1000)  # only consider top 1000
+            y = predict(frame, 1000)  # only consider top 1000
             for _ in range(len(y[0][0])):
                 proximities[y[1][0][_]] += y[0][0][_]
         id = index_to_release[np.argmax(proximities)]
@@ -98,11 +96,38 @@ def handle_video(update, context):
         raise (e)
     # os.remove(filename)
 
+
+def handle_photo(update, context):
+    filename = 'photo.jpg'
+    proximities = np.zeros((len(embedding_vectors), ))
+    for photo in update.message.photo:
+        try:
+            file = updater.bot.get_file(photo.file_id)
+            file.download(filename)
+            frame = cv.imread(filename, cv.IMREAD_COLOR)
+            y = predict(frame, 1000)  # only consider top 1000
+            for _ in range(len(y[0][0])):
+                proximities[y[1][0][_]] += y[0][0][_]
+        except Exception as e:
+            # os.remove(filename)
+            raise (e)
+        # os.remove(filename)
+    id = index_to_release[np.argmax(proximities)]
+    artist = release_info[str(id)][0]
+    title = release_info[str(id)][1]
+    url = release_info[str(id)][2]
+    logger.info(f'{artist} - {title}')
+    context.bot.send_message(chat_id=update.effective_chat.id, text=url)
+
+
 start_handler = CommandHandler('start', start)
 dispatcher.add_handler(start_handler)
 video_handler = MessageHandler(Filters.video & (~Filters.command),
                                handle_video)
 dispatcher.add_handler(video_handler)
+photo_handler = MessageHandler(Filters.photo & (~Filters.command),
+                               handle_photo)
+dispatcher.add_handler(photo_handler)
 
 if __name__ == "__main__":
     updater.start_polling()
